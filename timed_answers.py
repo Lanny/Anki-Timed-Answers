@@ -5,6 +5,23 @@ from aqt.deckconf import DeckConf
 from aqt.forms import dconf
 from aqt.utils import showInfo
 
+class AnswerTimer(object):
+    def __init__(self, card):
+        self._card = card
+        deckConf = mw.col.decks.confForDid(card.odid or card.did)
+        self.answerTime = deckConf['rev'].get('timeToAnswer', 0)
+
+    def isNeeded(self):
+        return bool(self.answerTime)
+
+    def start(self):
+        mw.progress.timer(self.answerTime * 1000, self._timeLimitUp, False)
+
+    def _timeLimitUp(self):
+        # Make sure we haven't answered or moved onto a different question.
+        if mw.reviewer.state == 'question' and mw.reviewer.card == self._card:
+            mw.reviewer._showAnswer()
+
 def customFormSetupUi(self, *args, **kwargs):
     _old = kwargs['_old']
     del kwargs['_old']
@@ -28,16 +45,12 @@ def customDeckConfSaveConf(self, *args, **kwargs):
 def customDeckConfLoadConf(self, *args, **kwargs):
     self.form.timeToAnswer.setValue(self.conf['rev'].get('timeToAnswer', 0))
 
-def timeLimitHit():
-    mw.reviewer._showAnswer()
-
 def startTimer():
     card = mw.reviewer.card
-    deckConf = mw.col.decks.confForDid(card.odid or card.did)
-    answerTime = deckConf['rev'].get('timeToAnswer', 0)
+    timer = AnswerTimer(card)
 
-    if answerTime:
-        mw.progress.timer(answerTime * 1000, timeLimitHit, False)
+    if timer.isNeeded():
+        timer.start()
 
 DeckConf.saveConf = wrap(
     DeckConf.saveConf,
