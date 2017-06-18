@@ -54,24 +54,22 @@ class AnswerTimer(object):
         self._card = card
         deckConf = mw.col.decks.confForDid(card.odid or card.did)
         self.answerTime = deckConf['rev'].get('timeToAnswer', 0)
+        self.showTimer = deckConf['rev'].get('showTTACountdown', False)
         self.killHook = str(random.randint(0, 2**32))
-        self.timerHasBeenInjected = False
 
     def isNeeded(self):
         return bool(self.answerTime)
 
     def start(self):
         mw.progress.timer(self.answerTime * 1000, self._timeLimitUp, False)
-        self.injectTimer()
+
+        if self.showTimer:
+            self.injectTimer()
 
     def onQuestionAnswered(self):
         mw.bottomWeb.eval('window.killHooks["%s"]()' % self.killHook);
 
     def injectTimer(self):
-        if (self.timerHasBeenInjected):
-            return
-
-        self.timerHasBeenInjected = True
         mw.bottomWeb.eval(timerJs % (self.answerTime, self.killHook));
 
     def _isRolling(self):
@@ -98,16 +96,24 @@ def customFormSetupUi(self, *args, **kwargs):
     self.gridLayout_3.addWidget(QLabel('Time to Answer'), row, 0)
     self.gridLayout_3.addWidget(spinBox, row, 1)
     self.gridLayout_3.addWidget(QLabel('seconds'), row, 2)
-
     self.timeToAnswer = spinBox
+
+    row += 1
+
+    checkbox = QCheckBox()
+    self.gridLayout_3.addWidget(QLabel('Show countdown'), row, 0)
+    self.gridLayout_3.addWidget(checkbox, row, 1)
+    self.showTTATimer = checkbox
 
     return ret
 
 def customDeckConfSaveConf(self, *args, **kwargs):
     self.conf['rev']['timeToAnswer'] = self.form.timeToAnswer.value()
+    self.conf['rev']['showTTACountdown'] = self.form.showTTATimer.isChecked()
 
 def customDeckConfLoadConf(self, *args, **kwargs):
     self.form.timeToAnswer.setValue(self.conf['rev'].get('timeToAnswer', 0))
+    self.form.showTTATimer.setChecked(self.conf['rev'].get('showTTACountdown', False))
 
 def startTimer():
     global LIVE_TIMER
